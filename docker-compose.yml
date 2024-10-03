@@ -11,9 +11,20 @@ services:
       MYSQL_PASSWORD: mypassword
     volumes:
       - ./docker-data/mysql:/var/lib/mysql
-      # - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      #设置初始化脚本
+      - ./docker-data/scripts/init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
       - "3306:3306"
+    networks:
+      - my-network
+
+  redis:
+    image: redis:latest
+    container_name: redis_container
+    environment:
+      REDIS_PASSWORD: root
+    ports:
+      - "6379:6379"
     networks:
       - my-network
 
