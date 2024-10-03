@@ -1,17 +1,22 @@
 package web
 
 import (
+	"errors"
 	regexp "github.com/dlclark/regexp2"
+	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"jike/internal/domain"
+	"jike/internal/service"
 	"net/http"
 )
 
 type UserHandler struct {
+	svc         *service.UserService
 	emailExp    *regexp.Regexp
 	passwordExp *regexp.Regexp
 }
 
-func NewUsersHandler() *UserHandler {
+func NewUsersHandler(svc *service.UserService) *UserHandler {
 	const (
 		EmailRegexPattern    = `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`
 		PasswordRegexPattern = `^[A-Za-z\d]{8,}$`
@@ -20,6 +25,7 @@ func NewUsersHandler() *UserHandler {
 	passwordExp := regexp.MustCompile(PasswordRegexPattern, regexp.None)
 
 	return &UserHandler{
+		svc:         svc,
 		emailExp:    emailExp,
 		passwordExp: passwordExp,
 	}
@@ -49,11 +55,6 @@ func (u *UserHandler) SignUp(ctx *gin.Context) {
 		})
 		return
 	}
-
-	const (
-		EmailRegexPattern    = `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`
-		PasswordRegexPattern = `^[A-Za-z\d]{8,}$`
-	)
 
 	//验证邮箱
 	ok, err := u.emailExp.MatchString(req.Email)
@@ -90,13 +91,67 @@ func (u *UserHandler) SignUp(ctx *gin.Context) {
 		return
 	}
 
+	//调用service层
+	err = u.svc.SignUp(ctx, domain.User{
+		Email:    req.Email,
+		Password: req.Password,
+	})
+	if err != nil {
+		if errors.Is(err, service.ErrDuplicateEmail) {
+			ctx.JSON(http.StatusBadRequest, gin.H{
+				"msg": "邮箱冲突",
+			})
+			return
+		}
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"msg": "系统错误",
+		})
+		return
+	}
+
 	ctx.JSON(http.StatusOK, gin.H{
 		"msg": req.Email,
 	})
+	return
 }
 
 func (u *UserHandler) Login(ctx *gin.Context) {
+	type LoginReq struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+	var req LoginReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(400, gin.H{
+			"msg": err.Error(),
+		})
+		return
+	}
+	user, err := u.svc.Login(ctx, domain.User{
+		Email:    req.Email,
+		Password: req.Password,
+	})
+	if err != nil {
+		if errors.Is(err, service.InvalidEmailOrPassword) {
+			ctx.JSON(http.StatusBadRequest, gin.H{
+				"msg": "邮箱或者密码不对",
+			})
+			return
+		}
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"msg": "系统错误",
+		})
+		return
+	}
+	//设置session
+	sess := sessions.Default(ctx)
+	sess.Set("user_id", user.Id)
+	sess.Save()
 
+	ctx.JSON(http.StatusOK, gin.H{
+		"msg": "登录成功",
+	})
+	return
 }
 
 func (u *UserHandler) Edit(ctx *gin.Context) {
@@ -104,5 +159,7 @@ func (u *UserHandler) Edit(ctx *gin.Context) {
 }
 
 func (u *UserHandler) Profile(ctx *gin.Context) {
-
+	ctx.JSON(http.StatusOK, gin.H{
+		"msg": "profile",
+	})
 }
