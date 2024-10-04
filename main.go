@@ -3,7 +3,7 @@ package main
 import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/sessions"
-	"github.com/gin-contrib/sessions/cookie"
+	"github.com/gin-contrib/sessions/redis"
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -34,6 +34,7 @@ func initWebServer() *gin.Engine {
 		AllowOrigins:     []string{"http://127.0.0.1:3000"},
 		AllowMethods:     []string{"PUT", "GET", "POST"},
 		AllowHeaders:     []string{"Content-Type", "Authorization"},
+		ExposeHeaders:    []string{"x-jwt-token"},
 		AllowCredentials: true,
 		AllowOriginFunc: func(origin string) bool {
 			//开发环境
@@ -45,8 +46,13 @@ func initWebServer() *gin.Engine {
 		},
 		MaxAge: 12 * time.Hour,
 	}))
-	server.Use(sessions.Sessions("jikeSession", cookie.NewStore([]byte("secret"))))
-	server.Use(middleware.NewLoginMiddlewareBuilder().
+	redisStore, err := redis.NewStore(10, "tcp", "localhost:6379", "", []byte("etn&/1dTiCN;Th(tH/@<Xi&7>exV?<[*"),
+		[]byte("*t:{y{xYKb@nTX21eH*v{c.8D\"/;Lu(1"))
+	if err != nil {
+		panic(err)
+	}
+	server.Use(sessions.Sessions("jikeSession", redisStore))
+	server.Use(middleware.NewLoginJwtMiddlewareBuilder().
 		IgnorePaths("/users/login").
 		IgnorePaths("/users/signup").
 		Build())
