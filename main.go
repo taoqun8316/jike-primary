@@ -1,10 +1,12 @@
 package main
 
 import (
+	"github.com/Salvatore-Giordano/gin-redis-ip-limiter"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/sessions"
-	"github.com/gin-contrib/sessions/redis"
+	ginRedis "github.com/gin-contrib/sessions/redis"
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"jike/internal/repository"
@@ -46,7 +48,7 @@ func initWebServer() *gin.Engine {
 		},
 		MaxAge: 12 * time.Hour,
 	}))
-	redisStore, err := redis.NewStore(10, "tcp", "localhost:6379", "", []byte("etn&/1dTiCN;Th(tH/@<Xi&7>exV?<[*"),
+	redisStore, err := ginRedis.NewStore(10, "tcp", "localhost:6379", "", []byte("etn&/1dTiCN;Th(tH/@<Xi&7>exV?<[*"),
 		[]byte("*t:{y{xYKb@nTX21eH*v{c.8D\"/;Lu(1"))
 	if err != nil {
 		panic(err)
@@ -56,6 +58,12 @@ func initWebServer() *gin.Engine {
 		IgnorePaths("/users/login").
 		IgnorePaths("/users/signup").
 		Build())
+	server.Use(iplimiter.NewRateLimiterMiddleware(redis.NewClient(&redis.Options{
+		Addr:     "localhost:6379",
+		Password: "",
+		DB:       1,
+	}), "general", 200, 60*time.Second))
+
 	return server
 }
 
