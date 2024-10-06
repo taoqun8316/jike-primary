@@ -9,6 +9,7 @@ import (
 	"github.com/go-redis/redis"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"jike/config"
 	"jike/internal/repository"
 	"jike/internal/repository/dao"
 	"jike/internal/service"
@@ -48,7 +49,7 @@ func initWebServer() *gin.Engine {
 		},
 		MaxAge: 12 * time.Hour,
 	}))
-	redisStore, err := ginRedis.NewStore(10, "tcp", "localhost:6379", "", []byte("etn&/1dTiCN;Th(tH/@<Xi&7>exV?<[*"),
+	redisStore, err := ginRedis.NewStore(10, "tcp", config.Config.Redis.Addr, "", []byte("etn&/1dTiCN;Th(tH/@<Xi&7>exV?<[*"),
 		[]byte("*t:{y{xYKb@nTX21eH*v{c.8D\"/;Lu(1"))
 	if err != nil {
 		panic(err)
@@ -76,7 +77,7 @@ func initUser(db *gorm.DB) *web.UserHandler {
 }
 
 func initDb() *gorm.DB {
-	db, err := gorm.Open(mysql.Open("root:root@tcp(127.0.0.1:3306)/jike?charset=utf8mb4&parseTime=True&loc=Local"))
+	db, err := gorm.Open(mysql.Open(config.Config.DB.DSN))
 	if err != nil {
 		panic(err)
 	}
