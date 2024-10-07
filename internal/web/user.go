@@ -257,11 +257,20 @@ func (u *UserHandler) Edit(ctx *gin.Context) {
 
 func (u *UserHandler) Profile(ctx *gin.Context) {
 	c, _ := ctx.Get("claims")
-	_, ok := c.(*UserClaims)
+	claims, ok := c.(*UserClaims)
 	if !ok {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"msg": "系统错误",
 		})
 	}
 
+	user, err := u.svc.Profile(ctx, claims.UserId)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"msg": "系统错误",
+		})
+	}
+	ctx.JSON(http.StatusOK, gin.H{
+		"data": user,
+	})
 }

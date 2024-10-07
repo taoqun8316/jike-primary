@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"jike/internal/domain"
+	"jike/internal/repository/cache"
 	"jike/internal/repository/dao"
 )
 
@@ -13,12 +14,14 @@ var (
 )
 
 type UserRepository struct {
-	dao *dao.UserDAO
+	dao   *dao.UserDAO
+	cache *cache.UserCache
 }
 
-func NewUserRepository(dao *dao.UserDAO) *UserRepository {
+func NewUserRepository(dao *dao.UserDAO, cacheObj *cache.UserCache) *UserRepository {
 	return &UserRepository{
-		dao: dao,
+		dao:   dao,
+		cache: cacheObj,
 	}
 }
 
@@ -39,4 +42,26 @@ func (r *UserRepository) FindByEmail(ctx context.Context, email string) (domain.
 		Email:    u.Email,
 		Password: u.Password,
 	}, nil
+}
+
+func (r *UserRepository) FindById(ctx context.Context, id int64) (domain.User, error) {
+	u, err := r.cache.Get(ctx, id)
+	switch err {
+	case nil:
+		return u, nil
+	case cache.ErrKeyNotExist:
+		ue, err := r.dao.FindById(ctx, id)
+		if err != nil {
+			return domain.User{}, err
+		}
+		u = domain.User{
+			Id:       ue.Id,
+			Email:    ue.Email,
+			Password: ue.Password,
+		}
+		_ = r.cache.Set(ctx, u) //记录日志
+		return u, err
+	default:
+		return domain.User{}, err
+	}
 }

@@ -11,6 +11,7 @@ import (
 	"gorm.io/gorm"
 	"jike/config"
 	"jike/internal/repository"
+	"jike/internal/repository/cache"
 	"jike/internal/repository/dao"
 	"jike/internal/service"
 	"jike/internal/web"
@@ -22,7 +23,8 @@ import (
 func main() {
 	db := initDb()
 	server := initWebServer()
-	u := initUser(db)
+	ucache := cache.NewUserCache(initCache())
+	u := initUser(db, ucache)
 	u.RegisterRoute(server)
 
 	err := server.Run(":8081")
@@ -68,9 +70,9 @@ func initWebServer() *gin.Engine {
 	return server
 }
 
-func initUser(db *gorm.DB) *web.UserHandler {
+func initUser(db *gorm.DB, cache *cache.UserCache) *web.UserHandler {
 	udao := dao.NewUserDAO(db)
-	repo := repository.NewUserRepository(udao)
+	repo := repository.NewUserRepository(udao, cache)
 	svc := service.NewUserService(repo)
 	u := web.NewUsersHandler(svc)
 	return u
@@ -87,4 +89,12 @@ func initDb() *gorm.DB {
 		panic(err)
 	}
 	return db
+}
+
+func initCache() redis.Cmdable {
+	return redis.NewClient(&redis.Options{
+		Addr:     config.Config.Redis.Addr,
+		Password: "", // 没有密码，默认值
+		DB:       0,  // 默认DB 0
+	})
 }
