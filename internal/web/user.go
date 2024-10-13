@@ -16,6 +16,7 @@ type UserHandler struct {
 	svc         *service.UserService
 	emailExp    *regexp.Regexp
 	passwordExp *regexp.Regexp
+	codeSvc     *service.CodeService
 }
 
 func NewUsersHandler(svc *service.UserService) *UserHandler {
@@ -41,7 +42,34 @@ func (u *UserHandler) RegisterRoute(server *gin.Engine) {
 		ug.POST("/logout", u.LogoutJwt)
 		ug.POST("/edit", u.Edit)
 		ug.POST("/profile", u.Profile)
+		ug.POST("/login_sms/code/send", u.Profile)
 	}
+}
+
+func (u *UserHandler) SendLoginSMSCode(ctx *gin.Context) {
+	type Req struct {
+		Phone string `json:"phone"`
+	}
+	var req Req
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(400, gin.H{
+			"msg": err.Error(),
+		})
+		return
+	}
+
+	const biz = "login"
+	err := u.codeSvc.Send(ctx, biz, req.Phone)
+	if err != nil {
+		ctx.JSON(500, gin.H{
+			"msg": "系统异常",
+		})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{
+		"msg": "发送成功",
+	})
+	return
 }
 
 func (u *UserHandler) SignUp(ctx *gin.Context) {
